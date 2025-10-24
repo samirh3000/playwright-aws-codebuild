@@ -1,0 +1,45 @@
+# .github/workflows/tests.yml
+name: UI Tests with CodeBuild
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:  # trigger manual
+
+jobs:
+  trigger-codebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          
+      - name: Start CodeBuild
+        id: codebuild
+        run: |
+          BUILD_ID=$(aws codebuild start-build \
+            --project-name tu-proyecto-playwright \
+            --source-version ${{ github.sha }} \
+            --query 'build.id' \
+            --output text)
+          echo "build_id=$BUILD_ID" >> $GITHUB_OUTPUT
+          
+      - name: Wait for CodeBuild
+        run: |
+          aws codebuild batch-get-builds \
+            --ids ${{ steps.codebuild.outputs.build_id }} \
+            --query 'builds[0].buildStatus' \
+            --output text
+      - name: Download artifacts from S3
+        run: |
+          aws s3 cp s3://tu-bucket/playwright-reports/ ./reports --recursive
+    
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v2
+        with:
+          path: ./reports     
+    
