@@ -13,20 +13,25 @@ phases:
   build:
     commands:
       - echo "Running Playwright tests..."
-      - npm test || true  # Continúa aunque fallen los tests
+      - npm test || true
 
   post_build:
     commands:
       - echo "Test execution completed"
+      - |
+        # Usar BUILD_ID de CodeBuild para nombre único
+        REPORT_DIR="playwright-report-${CODEBUILD_BUILD_NUMBER}-${CODEBUILD_START_TIME}"
+        
+        if [ -d "playwright-report" ]; then
+          mv playwright-report ${REPORT_DIR}
+          echo "Reporte guardado en: ${REPORT_DIR}"
+        fi
 
 artifacts:
   files:
-    - 'playwright-report/**/*'
-  name: playwright-report-$(date +%Y%m%d-%H%M%S)
+    - 'playwright-report-*/**/*'
+  name: report-$CODEBUILD_BUILD_NUMBER
 
-reports:
-  playwright-results:
-    files:
-      - 'playwright-report/**/*'
-    file-format: 'JUNITXML'  # Si tienes reportes JUnit
-    base-directory: 'playwright-report'
+cache:
+  paths:
+    - 'node_modules/**/*'
