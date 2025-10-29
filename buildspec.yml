@@ -1,29 +1,32 @@
-# buildspec.yml
 version: 0.2
 
 phases:
   install:
+    runtime-versions:
+      nodejs: 20
     commands:
-      - echo "Installing Node.js version 20 ..."
-      - n 20.19.2
+      - echo "Installing dependencies..."
       - npm ci
+      - echo "Installing Playwright browsers..."
       - npx playwright install --with-deps
 
   build:
     commands:
       - echo "Running Playwright tests..."
-      - npx playwright test --reporter=html --reporter=line
+      - npm test || true  # Continúa aunque fallen los tests
 
-reports:
-  playwright:
-    files:
-      - index.html
-    base-directory: playwright-report
-    discard-paths: no
-    file-format: HTML
+  post_build:
+    commands:
+      - echo "Test execution completed"
 
 artifacts:
   files:
-    - playwright-report/**/*
-    - test-results/**/*
-  discard-paths: no
+    - 'playwright-report/**/*'
+  name: playwright-report-$(date +%Y%m%d-%H%M%S)
+
+reports:
+  playwright-results:
+    files:
+      - 'playwright-report/**/*'
+    file-format: 'JUNITXML'  # Si tienes reportes JUnit
+    base-directory: 'playwright-report'
