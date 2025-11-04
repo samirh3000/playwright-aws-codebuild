@@ -8,24 +8,57 @@ phases:
       - echo "Installing dependencies..."
       - npm ci
       - echo "Installing Playwright browsers..."
-      - npx playwright install --with-deps
+      - npx playwright install --with-deps chromium
 
   build:
     commands:
       - echo "Running Playwright tests..."
-      - npm test || true
+      - npm test > test-output.txt 2>&1 || true
 
   post_build:
     commands:
       - echo "Test execution completed"
       - |
-        # Usar BUILD_ID de CodeBuild para nombre único
+        # Guardar reporte
         REPORT_DIR="playwright-report-${CODEBUILD_BUILD_NUMBER}-${CODEBUILD_START_TIME}"
         
         if [ -d "playwright-report" ]; then
           mv playwright-report ${REPORT_DIR}
           echo "Reporte guardado en: ${REPORT_DIR}"
         fi
+        
+        # Extraer resultados de los tests
+        PASSED=$(grep -oP '\d+(?= passed)' test-output.txt | tail -1 || echo "0")
+        FAILED=$(grep -oP '\d+(?= failed)' test-output.txt | tail -1 || echo "0")
+        
+        # URL del reporte en S3
+        S3_BUCKET="${S3_BUCKET_NAME}"
+        REPORT_URL="https://${S3_BUCKET}.s3.amazonaws.com/${REPORT_DIR}/index.html"
+        
+        # Estado
+        if [ "$CODEBUILD_BUILD_SUCCEEDING" = "1" ]; then
+          STATUS="✅ SUCCESS"
+          COLOR="good"
+        else
+          STATUS="❌ FAILED"
+          COLOR="danger"
+        fi
+        
+        # Notificación a Slack
+        curl -X POST -H 'Content-type: application/json' \
+          --data "{
+            \"attachments\": [{
+              \"color\": \"${COLOR}\",
+              \"title\": \"Playwright Tests - Build #${CODEBUILD_BUILD_NUMBER}\",
+              \"fields\": [
+                {\"title\": \"Status\", \"value\": \"${STATUS}\", \"short\": true},
+                {\"title\": \"Tests Passed\", \"value\": \"${PASSED}\", \"short\": true},
+                {\"title\": \"Tests Failed\", \"value\": \"${FAILED}\", \"short\": true},
+                {\"title\": \"Report\", \"value\": \"<${REPORT_URL}|View Report>\", \"short\": false}
+              ]
+            }]
+          }" \
+          ${SLACK_WEBHOOK}
 
 artifacts:
   files:
