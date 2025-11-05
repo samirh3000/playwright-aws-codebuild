@@ -33,7 +33,7 @@ phases:
         
         # URL del reporte en S3
         S3_BUCKET="${S3_BUCKET_NAME}"
-        REPORT_URL="https://${S3_BUCKET}.s3.amazonaws.com/${REPORT_DIR}/index.html"
+        REPORT_URL="https://${S3_BUCKET}.s3.amazonaws.com/l/${REPORT_DIR}/index.html"
         
         # Estado
         if [ "$CODEBUILD_BUILD_SUCCEEDING" = "1" ]; then
